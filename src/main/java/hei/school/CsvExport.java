@@ -19,6 +19,9 @@ public class CsvExport {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private GradeCalculator gradeCalculator;
+
     @GetMapping("/exports/grades.csv")
     public ResponseEntity<String> export() {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
@@ -32,10 +35,12 @@ public class CsvExport {
         for (Map<String, Object> row : rows) {
             String note = "";
             if (row.get("raw_points") != null) {
-                double n = ((BigDecimal) row.get("raw_points")).doubleValue()
-                        / ((BigDecimal) row.get("max_points")).doubleValue() * 20;
-                n = Math.floor(n * 10) / 10;
-                note = String.valueOf(n).replace('.', ',');
+                BigDecimal grade = gradeCalculator.penalizedGrade(
+                        ((BigDecimal) row.get("raw_points")).doubleValue(),
+                        ((BigDecimal) row.get("max_points")).doubleValue(),
+                        ((java.sql.Date) row.get("deadline")).toLocalDate(),
+                        ((java.sql.Timestamp) row.get("submitted_at")).toLocalDateTime());
+                note = grade.toPlainString().replace('.', ',');
             }
             csv.append(row.get("reference")).append(';')
                     .append(row.get("full_name")).append(';')
