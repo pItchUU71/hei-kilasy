@@ -1,6 +1,7 @@
 package hei.school;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -26,7 +27,7 @@ public class CsvExport {
     public ResponseEntity<String> export() {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 "SELECT st.reference, st.full_name, st.email, st.cohort, e.title, e.deadline, s.submitted_at, s.raw_points, e.max_points, "
-                        + "(s.submitted_at::date > e.deadline) AS late "
+                        + "(e.deadline IS NOT NULL AND s.submitted_at::date > e.deadline) AS late "
                         + "FROM submission s JOIN student st ON st.id = s.student_id JOIN exercise e ON e.id = s.exercise_id "
                         + "ORDER BY st.full_name, e.deadline");
 
@@ -34,11 +35,13 @@ public class CsvExport {
         csv.append("reference;etudiant;email;promotion;exercice;echeance;soumis_le;en_retard;note_sur_20\n");
         for (Map<String, Object> row : rows) {
             String note = "";
+            Object deadlineValue = row.get("deadline");
+            LocalDate deadline = deadlineValue == null ? null : ((java.sql.Date) deadlineValue).toLocalDate();
             if (row.get("raw_points") != null) {
                 BigDecimal grade = gradeCalculator.penalizedGrade(
                         ((BigDecimal) row.get("raw_points")).doubleValue(),
                         ((BigDecimal) row.get("max_points")).doubleValue(),
-                        ((java.sql.Date) row.get("deadline")).toLocalDate(),
+                        deadline,
                         ((java.sql.Timestamp) row.get("submitted_at")).toLocalDateTime());
                 note = grade.toPlainString().replace('.', ',');
             }
@@ -47,7 +50,7 @@ public class CsvExport {
                     .append(row.get("email")).append(';')
                     .append(row.get("cohort")).append(';')
                     .append(row.get("title")).append(';')
-                    .append(row.get("deadline")).append(';')
+                    .append(deadline == null ? "" : deadline).append(';')
                     .append(row.get("submitted_at")).append(';')
                     .append(Boolean.TRUE.equals(row.get("late")) ? "oui" : "non").append(';')
                     .append(note).append('\n');

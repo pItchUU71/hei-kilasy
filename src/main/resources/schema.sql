@@ -18,13 +18,23 @@ CREATE TABLE IF NOT EXISTS student
 
 CREATE TABLE IF NOT EXISTS exercise
 (
+    id               BIGSERIAL PRIMARY KEY,
+    teacher_id       BIGINT       NOT NULL REFERENCES teacher (id),
+    title            VARCHAR(200) NOT NULL,
+    description      TEXT,
+    max_points       NUMERIC(5, 2) NOT NULL DEFAULT 20,
+    deadline         DATE,
+    duration_minutes INTEGER CHECK (duration_minutes IS NULL OR duration_minutes > 0),
+    created_at       TIMESTAMP    NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS exercise_start
+(
     id          BIGSERIAL PRIMARY KEY,
-    teacher_id  BIGINT       NOT NULL REFERENCES teacher (id),
-    title       VARCHAR(200) NOT NULL,
-    description TEXT,
-    max_points  NUMERIC(5, 2) NOT NULL DEFAULT 20,
-    deadline    DATE         NOT NULL,
-    created_at  TIMESTAMP    NOT NULL DEFAULT now()
+    exercise_id BIGINT    NOT NULL REFERENCES exercise (id),
+    student_id  BIGINT    NOT NULL REFERENCES student (id),
+    started_at  TIMESTAMP NOT NULL DEFAULT now(),
+    UNIQUE (exercise_id, student_id)
 );
 
 CREATE TABLE IF NOT EXISTS submission
