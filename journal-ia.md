@@ -1,44 +1,49 @@
-# Journal IA — Kilasy (pénalité de retard)
+# Journal IA — Kilasy
 
 Outil utilisé : opencode (modèle deepseek-v4.1-flash-free), dans le terminal / IntelliJ IDEA
 
-## Changement : pénalité de retard sur les notes
+## Changement 2 : SMS de notification
 
-### Échange 1 — 09:05
-Demande : « Les soumissions rendues après l'échéance sont pénalisées : −10 % par
-jour de retard entamé, plafond −50 %. La note doit être la même dans la
-correction, le relevé et l'export CSV. »
-Proposition : créer une classe GradeCalculator unique, calculer la pénalité à la
-lecture (sans toucher aux points bruts), puis l'utiliser dans SubmissionController,
-GradeReport et CsvExport.
+### Échange 1 — 09:50
+Demande : « Quand un enseignant publie une note, l'étudiant reçoit aussi un SMS
+au numéro enregistré sur son profil. Le fournisseur est simulé par un message
+dans les logs. Si l'envoi échoue, la note reste publiée. Changer de fournisseur
+ne doit pas obliger à modifier le code de la notation. »
+Proposition : créer une interface SmsSender et une implémentation LogSmsSender
+injectée dans SubmissionController, puis envoyer le SMS après l'email avec un
+try/catch.
 Décision : gardé.
-Pourquoi : le calcul était dupliqué à trois endroits avec des arrondis différents ;
-une seule classe évite les incohérences.
-Vérification : duplication confirmée dans les trois fichiers, puis validée après
-implémentation par mvn test (5/5) et une note identique partout — soumission 4 :
-8,0 en correction, 8,0 au relevé, 8,0 dans le CSV.
+Pourquoi : l'interface isole le fournisseur, et le try/catch empêche une panne
+SMS de bloquer la notation.
+Vérification : soumission 2 notée 16 → email reçu et log
+`[SMS] +261 34 00 000 02 : Votre note pour « Tri à bulles » est disponible : 14,4/20.`
 
-### Échange 2 — 09:12
-Demande : « Quel périmètre pour cette évolution ? »
-Proposition : code + tests + README.
-Décision : code + tests seulement.
-Pourquoi : rester sur le strict nécessaire.
+### Échange 2 — 09:56
+Demande : « Le numéro de téléphone doit-il être valide ? »
+Proposition : ne pas ajouter de validation ; envoyer seulement si le champ est
+renseigné.
+Décision : gardé.
+Pourquoi : le SMS est simulé et la demande ne fixe aucun format ; une validation
+risquerait de bloquer des numéros existants.
 Vérification : sans objet.
 
-### Échange 3 — 09:35
-Demande : implémentation du calcul de pénalité.
-Proposition : GradeCalculator (jours de retard, pénalité, note ≥ 0), branchement
-dans les trois fichiers, remplacement du Math.floor du CSV.
-Décision : gardé avec corrections.
-Pourquoi : le CSV tronquait l'arrondi (13,7 au lieu de 13,8) et le plancher à zéro
-renvoyait 0 au lieu de 0.0.
-Vérification : mvn test 5/5 ; /submissions/1..4 → 16 / 14,4 / 11,2 / 8 ;
-relevé étudiant 4 → 8,0 et 12,0, moyenne 10,00 ; CSV identique (8,0 et 13,8). OK.
+### Échange 3 — 10:10
+Demande : « Comment simuler une panne SMS et vérifier que la note reste publiée ? »
+Proposition : ajouter une propriété kilasy.sms.fail qui lève une exception dans
+LogSmsSender, sans toucher au code de notation.
+Décision : gardé.
+Pourquoi : permet de tester la panne sans modifier le code et sans changer de
+fournisseur.
+Vérification : relance avec --kilasy.sms.fail=true, notation de la soumission 7 →
+PUT 200, GET note 14,4 enregistrée, email reçu, log
+`[SMS] Échec de l'envoi à +261 34 00 000 02 : Panne simulée du fournisseur SMS`. OK.
+
+
 
 ## Bilan
-- Temps passé : environ 30 min.
 - Fichiers modifiés :
-  - src/main/java/hei/school/GradeCalculator.java (créé)
-  - src/main/java/hei/school/SubmissionController.java
-  - src/main/java/hei/school/GradeReport.java
-  - src/main/java/hei/school/CsvExport.java
+  - Changement 2 :
+    - src/main/java/hei/school/SmsSender.java (créé)
+    - src/main/java/hei/school/LogSmsSender.java (créé)
+    - src/main/java/hei/school/SubmissionController.java
+    - src/main/resources/application.properties
